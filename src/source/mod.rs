@@ -10,43 +10,28 @@ pub use semantic_scholar::*;
 
 use crate::models::{Author, Paper};
 use async_trait::async_trait;
-use std::error::Error;
 use std::fmt;
+use thiserror::Error;
 
 /// 论文源错误类型
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SourceError {
     /// 网络请求错误
+    #[error("网络错误: {0}")]
     Network(String),
     /// 解析错误
+    #[error("解析错误: {0}")]
     Parse(String),
     /// 速率限制
+    #[error("速率限制，{}", .retry_after.map(|s| format!("请等待 {s} 秒后重试")).unwrap_or_else(|| "请稍后重试".to_string()))]
     RateLimit { retry_after: Option<u64> },
     /// 未找到
+    #[error("未找到论文")]
     NotFound,
     /// 其他错误
+    #[error("错误: {0}")]
     Other(String),
 }
-
-impl fmt::Display for SourceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Network(msg) => write!(f, "网络错误: {}", msg),
-            Self::Parse(msg) => write!(f, "解析错误: {}", msg),
-            Self::RateLimit { retry_after } => {
-                if let Some(seconds) = retry_after {
-                    write!(f, "速率限制，请等待 {} 秒后重试", seconds)
-                } else {
-                    write!(f, "速率限制，请稍后重试")
-                }
-            }
-            Self::NotFound => write!(f, "未找到论文"),
-            Self::Other(msg) => write!(f, "错误: {}", msg),
-        }
-    }
-}
-
-impl Error for SourceError {}
 
 /// 搜索结果
 #[derive(Debug, Clone)]
