@@ -20,9 +20,11 @@ impl ArxivSource {
             .timeout(Duration::from_secs(config.timeout));
 
         if let Some(proxy_url) = &config.proxy {
-            let proxy = reqwest::Proxy::all(proxy_url)
-                .map_err(|e| SourceError::Network(e.to_string()))?;
-            builder = builder.proxy(proxy);
+            if !proxy_url.is_empty() {
+                let proxy = reqwest::Proxy::all(proxy_url)
+                    .map_err(|e| SourceError::Network(e.to_string()))?;
+                builder = builder.proxy(proxy);
+            }
         }
 
         let client = builder.build()

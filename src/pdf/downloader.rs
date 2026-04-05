@@ -22,9 +22,11 @@ impl PdfDownloader {
             .connect_timeout(Duration::from_secs(30));
 
         if let Some(proxy_url) = proxy {
-            let proxy = reqwest::Proxy::all(proxy_url)
-                .context("Failed to configure proxy")?;
-            builder = builder.proxy(proxy);
+            if !proxy_url.is_empty() {
+                let proxy = reqwest::Proxy::all(proxy_url)
+                    .context("Failed to configure proxy")?;
+                builder = builder.proxy(proxy);
+            }
         }
 
         let client = builder.build()

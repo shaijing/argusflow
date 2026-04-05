@@ -76,20 +76,32 @@ impl CommandContext {
 fn build_manager(config: &Config) -> Result<SourceManager> {
     let mut manager = SourceManager::new();
 
-    let arxiv_source = SourceBuilder::new()
-        .proxy(config.proxy.clone().unwrap_or_default())
+    let mut arxiv_builder = SourceBuilder::new()
         .timeout(30)
-        .max_retries(3)
-        .build_arxiv()?;
-    manager.register(arxiv_source);
+        .max_retries(3);
 
-    let ss_source = SourceBuilder::new()
-        .api_key(config.semantic_scholar_api_key.clone().unwrap_or_default())
-        .proxy(config.proxy.clone().unwrap_or_default())
+    if let Some(ref proxy) = config.proxy {
+        if !proxy.is_empty() {
+            arxiv_builder = arxiv_builder.proxy(proxy);
+        }
+    }
+    manager.register(arxiv_builder.build_arxiv()?);
+
+    let mut ss_builder = SourceBuilder::new()
         .timeout(30)
-        .max_retries(5)
-        .build_semantic_scholar()?;
-    manager.register(ss_source);
+        .max_retries(5);
+
+    if let Some(ref key) = config.semantic_scholar_api_key {
+        if !key.is_empty() {
+            ss_builder = ss_builder.api_key(key);
+        }
+    }
+    if let Some(ref proxy) = config.proxy {
+        if !proxy.is_empty() {
+            ss_builder = ss_builder.proxy(proxy);
+        }
+    }
+    manager.register(ss_builder.build_semantic_scholar()?);
 
     Ok(manager)
 }
