@@ -117,12 +117,34 @@ impl ArxivSource {
             .map(|s| s.to_string());
 
         let pdf_url = self.extract_pdf_link(xml);
+        let authors = self.extract_authors(xml);
 
         Some(Paper::new(title.trim().to_string())
             .with_abstract(summary.trim().to_string())
             .with_arxiv_id(arxiv_id.unwrap_or_default())
             .with_doi(doi.unwrap_or_default())
-            .with_pdf_url(pdf_url.unwrap_or_default()))
+            .with_pdf_url(pdf_url.unwrap_or_default())
+            .with_authors(authors))
+    }
+
+    fn extract_authors(&self, xml: &str) -> Vec<crate::Author> {
+        let mut authors = Vec::new();
+        let mut pos = 0;
+
+        while let Some(start) = xml[pos..].find("<author>") {
+            let author_start = pos + start + 8; // "<author>".len()
+            if let Some(end) = xml[author_start..].find("</author>") {
+                let author_xml = &xml[author_start..author_start + end];
+                if let Some(name) = self.extract_tag(author_xml, "name") {
+                    authors.push(crate::Author::new(name.trim().to_string()));
+                }
+                pos = author_start + end + 9; // "</author>".len()
+            } else {
+                break;
+            }
+        }
+
+        authors
     }
 
     fn extract_tag(&self, xml: &str, tag: &str) -> Option<String> {

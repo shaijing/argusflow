@@ -189,9 +189,23 @@ impl SemanticScholarSource {
             .and_then(|oa| oa.pdf_url)
             .or_else(|| arxiv_id.as_ref().map(|id| format!("https://arxiv.org/pdf/{}", id)));
 
+        // 转换作者
+        let authors: Vec<Author> = ss.authors.into_iter()
+            .map(|a| {
+                let mut author = Author::new(a.name);
+                if let Some(id) = a.author_id {
+                    if !id.is_empty() {
+                        author = author.with_semantic_scholar_id(id);
+                    }
+                }
+                author
+            })
+            .collect();
+
         let mut paper = Paper::new(ss.title)
             .with_semantic_scholar_id(ss.paper_id)
-            .with_citation_count(ss.citation_count.unwrap_or(0));
+            .with_citation_count(ss.citation_count.unwrap_or(0))
+            .with_authors(authors);
 
         if let Some(abs) = ss.abstract_text {
             if !abs.is_empty() {

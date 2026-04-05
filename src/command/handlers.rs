@@ -43,6 +43,7 @@ async fn search_arxiv(ctx: &CommandContext, query: &str, limit: usize) -> Result
         println!("[DB ID: {}] [来源: {}]", paper_id, source.name());
         println!("标题: {}", paper.title);
         println!("arXiv ID: {}", paper.arxiv_id.as_deref().unwrap_or("N/A"));
+        print_authors(&paper.authors);
         println!("PDF: {}", paper.pdf_url.as_deref().unwrap_or("N/A"));
         if let Some(abs) = &paper.abstract_text {
             println!("摘要: {}...", &abs[..200.min(abs.len())]);
@@ -72,6 +73,7 @@ async fn search_ss(ctx: &CommandContext, query: &str, limit: usize) -> Result<()
         println!("[DB ID: {}] [来源: {}]", paper_id, source.name());
         println!("标题: {}", paper.title);
         println!("SS ID: {}", paper.semantic_scholar_id.as_deref().unwrap_or("N/A"));
+        print_authors(&paper.authors);
         println!("引用数: {}", paper.citation_count);
         println!("PDF: {}", paper.pdf_url.as_deref().unwrap_or("N/A"));
     }
@@ -90,6 +92,7 @@ async fn smart_search(ctx: &CommandContext, query: &str, limit: usize) -> Result
         println!("[DB ID: {}] [来源: {}]", paper_id, kind);
         println!("标题: {}", paper.title);
         print_identifier(paper);
+        print_authors(&paper.authors);
         println!("PDF: {}", paper.pdf_url.as_deref().unwrap_or("N/A"));
     }
 
@@ -202,7 +205,7 @@ fn list_papers(ctx: &CommandContext, limit: usize) -> Result<()> {
     println!("共 {} 篇论文:", papers.len());
     for paper in papers {
         println!("\nID: {}", paper.id.unwrap());
-        println!("标题: {}", paper.title);
+        println!("标题: {}", paper.title); 
         println!("arXiv: {}", paper.arxiv_id.as_deref().unwrap_or("N/A"));
         println!("SS: {}", paper.semantic_scholar_id.as_deref().unwrap_or("N/A"));
         println!("引用数: {}", paper.citation_count);
@@ -264,10 +267,18 @@ fn print_identifier(paper: &Paper) {
     }
 }
 
+fn print_authors(authors: &[crate::Author]) {
+    if !authors.is_empty() {
+        let names: Vec<&str> = authors.iter().map(|a| a.name.as_str()).collect();
+        println!("作者: {}", names.join(", "));
+    }
+}
+
 fn print_paper_detail(db_id: i64, source: impl std::fmt::Display, paper: &Paper) {
     println!("[DB ID: {}] [来源: {}]", db_id, source);
     println!("标题: {}", paper.title);
     print_identifier(paper);
+    print_authors(&paper.authors);
     println!("DOI: {}", paper.doi.as_deref().unwrap_or("N/A"));
     println!("引用数: {}", paper.citation_count);
     println!("PDF: {}", paper.pdf_url.as_deref().unwrap_or("N/A"));

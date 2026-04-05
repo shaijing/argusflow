@@ -113,6 +113,7 @@ impl Database {
                 publication_date: row.get(8)?,
                 venue: row.get(9)?,
                 citation_count: row.get(10)?,
+                authors: Vec::new(), // 从数据库读取时暂不加载作者
                 created_at: row.get::<_, String>(11)?.parse().unwrap_or(Utc::now()),
                 updated_at: row.get::<_, String>(12)?.parse().unwrap_or(Utc::now()),
             })
@@ -144,6 +145,7 @@ impl Database {
                 publication_date: row.get(8)?,
                 venue: row.get(9)?,
                 citation_count: row.get(10)?,
+                authors: Vec::new(), // 从数据库读取时暂不加载作者
                 created_at: row.get::<_, String>(11)?.parse().unwrap_or(Utc::now()),
                 updated_at: row.get::<_, String>(12)?.parse().unwrap_or(Utc::now()),
             })
@@ -175,6 +177,7 @@ impl Database {
                 publication_date: row.get(8)?,
                 venue: row.get(9)?,
                 citation_count: row.get(10)?,
+                authors: Vec::new(),
                 created_at: row.get::<_, String>(11)?.parse().unwrap_or(Utc::now()),
                 updated_at: row.get::<_, String>(12)?.parse().unwrap_or(Utc::now()),
             })
@@ -232,6 +235,7 @@ impl Database {
                 publication_date: row.get(8)?,
                 venue: row.get(9)?,
                 citation_count: row.get(10)?,
+                authors: Vec::new(),
                 created_at: row.get::<_, String>(11)?.parse().unwrap_or(Utc::now()),
                 updated_at: row.get::<_, String>(12)?.parse().unwrap_or(Utc::now()),
             })
@@ -344,6 +348,7 @@ impl Database {
                 publication_date: row.get(8)?,
                 venue: row.get(9)?,
                 citation_count: row.get(10)?,
+                authors: Vec::new(),
                 created_at: row.get::<_, String>(11)?.parse().unwrap_or(Utc::now()),
                 updated_at: row.get::<_, String>(12)?.parse().unwrap_or(Utc::now()),
             })

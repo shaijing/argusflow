@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use super::Author;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Paper {
@@ -14,6 +15,7 @@ pub struct Paper {
     pub publication_date: Option<String>,
     pub venue: Option<String>,
     pub citation_count: i64,
+    pub authors: Vec<Author>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -33,6 +35,7 @@ impl Paper {
             publication_date: None,
             venue: None,
             citation_count: 0,
+            authors: Vec::new(),
             created_at: now,
             updated_at: now,
         }
@@ -82,6 +85,12 @@ impl Paper {
 
     pub fn with_venue(mut self, venue: String) -> Self {
         self.venue = Some(venue);
+        self.updated_at = Utc::now();
+        self
+    }
+
+    pub fn with_authors(mut self, authors: Vec<Author>) -> Self {
+        self.authors = authors;
         self.updated_at = Utc::now();
         self
     }
