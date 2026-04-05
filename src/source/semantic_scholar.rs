@@ -187,13 +187,35 @@ impl SemanticScholarSource {
             .and_then(|oa| oa.pdf_url)
             .or_else(|| arxiv_id.as_ref().map(|id| format!("https://arxiv.org/pdf/{}", id)));
 
-        Paper::new(ss.title)
+        let mut paper = Paper::new(ss.title)
             .with_semantic_scholar_id(ss.paper_id)
-            .with_abstract(ss.abstract_text.unwrap_or_default())
-            .with_doi(doi.unwrap_or_default())
-            .with_arxiv_id(arxiv_id.unwrap_or_default())
-            .with_pdf_url(pdf_url.unwrap_or_default())
-            .with_citation_count(ss.citation_count.unwrap_or(0))
+            .with_citation_count(ss.citation_count.unwrap_or(0));
+
+        if let Some(abs) = ss.abstract_text {
+            if !abs.is_empty() {
+                paper = paper.with_abstract(abs);
+            }
+        }
+
+        if let Some(d) = doi {
+            if !d.is_empty() {
+                paper = paper.with_doi(d);
+            }
+        }
+
+        if let Some(aid) = arxiv_id {
+            if !aid.is_empty() {
+                paper = paper.with_arxiv_id(aid);
+            }
+        }
+
+        if let Some(pdf) = pdf_url {
+            if !pdf.is_empty() {
+                paper = paper.with_pdf_url(pdf);
+            }
+        }
+
+        paper
     }
 }
 
@@ -341,5 +363,203 @@ impl SemanticScholarSource {
             Err(SourceError::NotFound) => Ok(None),
             Err(e) => Err(e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_source() -> SemanticScholarSource {
+        SemanticScholarSource::new(SourceConfig::default()).unwrap()
+    }
+
+    #[test]
+    fn test_url_encode() {
+        assert_eq!(SemanticScholarSource::url_encode("hello"), "hello");
+        assert_eq!(SemanticScholarSource::url_encode("hello world"), "hello%20world");
+        assert_eq!(SemanticScholarSource::url_encode("attention+mechanism"), "attention%2Bmechanism");
+    }
+
+    #[test]
+    fn test_ss_to_paper() {
+        let source = create_test_source();
+        let ss_paper = SsPaper {
+            paper_id: "abc123".to_string(),
+            title: "Test Paper".to_string(),
+            abstract_text: Some("Test abstract".to_string()),
+            year: Some(2023),
+            venue: Some("ICML".to_string()),
+            citation_count: Some(100),
+            external_ids: Some(SsExternalIds {
+                doi: Some("10.1234/test".to_string()),
+                arxiv_id: Some("2301.00001".to_string()),
+            }),
+            authors: vec![],
+            open_access_pdf: Some(SsOpenAccess {
+                pdf_url: Some("https://example.com/pdf".to_string()),
+            }),
+        };
+
+        let paper = source.ss_to_paper(ss_paper);
+        assert_eq!(paper.title, "Test Paper");
+        assert_eq!(paper.semantic_scholar_id, Some("abc123".to_string()));
+        assert_eq!(paper.abstract_text, Some("Test abstract".to_string()));
+        assert_eq!(paper.doi, Some("10.1234/test".to_string()));
+        assert_eq!(paper.arxiv_id, Some("2301.00001".to_string()));
+        assert_eq!(paper.citation_count, 100);
+        assert_eq!(paper.pdf_url, Some("https://example.com/pdf".to_string()));
+    }
+
+    #[test]
+    fn test_ss_to_paper_fallback_pdf() {
+        let source = create_test_source();
+        let ss_paper = SsPaper {
+            paper_id: "abc123".to_string(),
+            title: "Test Paper".to_string(),
+            abstract_text: None,
+            year: None,
+            venue: None,
+            citation_count: None,
+            external_ids: Some(SsExternalIds {
+                doi: None,
+                arxiv_id: Some("2301.00001".to_string()),
+            }),
+            authors: vec![],
+            open_access_pdf: None,
+        };
+
+        let paper = source.ss_to_paper(ss_paper);
+        // PDF should fallback to arXiv URL
+        assert_eq!(paper.pdf_url, Some("https://arxiv.org/pdf/2301.00001".to_string()));
+    }
+
+    #[test]
+    fn test_ss_to_paper_no_external_ids() {
+        let source = create_test_source();
+        let ss_paper = SsPaper {
+            paper_id: "abc123".to_string(),
+            title: "Test Paper".to_string(),
+            abstract_text: None,
+            year: None,
+            venue: None,
+            citation_count: Some(0),
+            external_ids: None,
+            authors: vec![],
+            open_access_pdf: None,
+        };
+
+        let paper = source.ss_to_paper(ss_paper);
+        assert_eq!(paper.doi, None);
+        assert_eq!(paper.arxiv_id, None);
+        assert_eq!(paper.pdf_url, None);
+    }
+
+    #[test]
+    fn test_capabilities() {
+        let source = create_test_source();
+        let caps = source.capabilities();
+        assert!(caps.search);
+        assert!(caps.get_by_id);
+        assert!(caps.citations);
+        assert!(caps.references);
+        assert!(caps.authors);
+        assert!(!caps.pdf_download);
+    }
+
+    #[test]
+    fn test_source_kind() {
+        let source = create_test_source();
+        assert_eq!(source.kind(), SourceKind::SemanticScholar);
+        assert_eq!(source.name(), "Semantic Scholar");
+    }
+
+    #[test]
+    fn test_build_headers_with_api_key() {
+        let config = SourceConfig {
+            api_key: Some("test-key".to_string()),
+            ..Default::default()
+        };
+        let source = SemanticScholarSource::new(config).unwrap();
+        let headers = source.build_headers();
+        assert!(headers.contains_key("x-api-key"));
+    }
+
+    #[test]
+    fn test_build_headers_without_api_key() {
+        let source = create_test_source();
+        let headers = source.build_headers();
+        assert!(!headers.contains_key("x-api-key"));
+    }
+
+    #[test]
+    fn test_new_with_proxy() {
+        let config = SourceConfig {
+            proxy: Some("http://127.0.0.1:7890".to_string()),
+            ..Default::default()
+        };
+        let source = SemanticScholarSource::new(config);
+        assert!(source.is_ok());
+    }
+
+    #[test]
+    fn test_deserialize_ss_paper() {
+        let json = r#"{
+            "paperId": "abc123",
+            "title": "Test Paper",
+            "abstract": "Test abstract",
+            "year": 2023,
+            "venue": "ICML",
+            "citationCount": 100,
+            "externalIds": {
+                "DOI": "10.1234/test",
+                "ArXiv": "2301.00001"
+            },
+            "authors": [
+                {"authorId": "123", "name": "John Doe"}
+            ],
+            "openAccessPdf": {
+                "url": "https://example.com/pdf"
+            }
+        }"#;
+
+        let ss_paper: SsPaper = serde_json::from_str(json).unwrap();
+        assert_eq!(ss_paper.paper_id, "abc123");
+        assert_eq!(ss_paper.title, "Test Paper");
+        assert_eq!(ss_paper.citation_count, Some(100));
+        assert!(ss_paper.external_ids.is_some());
+    }
+
+    #[test]
+    fn test_deserialize_ss_citation() {
+        let json = r#"{
+            "citingPaper": {
+                "paperId": "cite123",
+                "title": "Citing Paper",
+                "authors": [{"authorId": "456", "name": "Jane Doe"}]
+            }
+        }"#;
+
+        let citation: SsCitation = serde_json::from_str(json).unwrap();
+        assert!(citation.citing_paper.is_some());
+        let citing = citation.citing_paper.unwrap();
+        assert_eq!(citing.paper_id, "cite123");
+        assert_eq!(citing.title, Some("Citing Paper".to_string()));
+    }
+
+    #[test]
+    fn test_deserialize_ss_reference() {
+        let json = r#"{
+            "citedPaper": {
+                "paperId": "ref123",
+                "title": "Referenced Paper",
+                "authors": []
+            }
+        }"#;
+
+        let reference: SsReference = serde_json::from_str(json).unwrap();
+        assert!(reference.cited_paper.is_some());
+        let cited = reference.cited_paper.unwrap();
+        assert_eq!(cited.paper_id, "ref123");
     }
 }

@@ -218,3 +218,125 @@ impl Default for SourceBuilder {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_source_manager_new() {
+        let manager = SourceManager::new();
+        assert_eq!(manager.list_sources().len(), 0);
+    }
+
+    #[test]
+    fn test_source_manager_default() {
+        let manager = SourceManager::default();
+        assert_eq!(manager.list_sources().len(), 0);
+    }
+
+    #[test]
+    fn test_source_manager_register() {
+        let mut manager = SourceManager::new();
+        let source = ArxivSource::new(SourceConfig::default()).unwrap();
+        manager.register(source);
+        assert_eq!(manager.list_sources().len(), 1);
+        assert!(manager.get(SourceKind::Arxiv).is_some());
+    }
+
+    #[test]
+    fn test_source_manager_get_missing() {
+        let manager = SourceManager::new();
+        assert!(manager.get(SourceKind::Arxiv).is_none());
+    }
+
+    #[test]
+    fn test_source_manager_set_default() {
+        let mut manager = SourceManager::new();
+        let source = ArxivSource::new(SourceConfig::default()).unwrap();
+        manager.register(source);
+        manager.set_default(SourceKind::Arxiv);
+        assert!(manager.get_default().is_some());
+    }
+
+    #[test]
+    fn test_source_manager_list_sources() {
+        let mut manager = SourceManager::new();
+        let arxiv = ArxivSource::new(SourceConfig::default()).unwrap();
+        let ss = SemanticScholarSource::new(SourceConfig::default()).unwrap();
+        manager.register(arxiv);
+        manager.register(ss);
+
+        let sources = manager.list_sources();
+        assert_eq!(sources.len(), 2);
+        assert!(sources.contains(&SourceKind::Arxiv));
+        assert!(sources.contains(&SourceKind::SemanticScholar));
+    }
+
+    #[test]
+    fn test_source_manager_supports() {
+        let mut manager = SourceManager::new();
+        let source = ArxivSource::new(SourceConfig::default()).unwrap();
+        manager.register(source);
+
+        assert!(manager.supports(SourceKind::Arxiv, |c| c.search));
+        assert!(!manager.supports(SourceKind::Arxiv, |c| c.citations));
+        assert!(!manager.supports(SourceKind::SemanticScholar, |c| c.search));
+    }
+
+    #[test]
+    fn test_source_builder_new() {
+        let builder = SourceBuilder::new();
+        assert_eq!(builder.config.api_key, None);
+        assert_eq!(builder.config.proxy, None);
+        assert_eq!(builder.config.timeout, 30);
+    }
+
+    #[test]
+    fn test_source_builder_api_key() {
+        let builder = SourceBuilder::new().api_key("test-key");
+        assert_eq!(builder.config.api_key, Some("test-key".to_string()));
+    }
+
+    #[test]
+    fn test_source_builder_proxy() {
+        let builder = SourceBuilder::new().proxy("http://127.0.0.1:7890");
+        assert_eq!(builder.config.proxy, Some("http://127.0.0.1:7890".to_string()));
+    }
+
+    #[test]
+    fn test_source_builder_timeout() {
+        let builder = SourceBuilder::new().timeout(60);
+        assert_eq!(builder.config.timeout, 60);
+    }
+
+    #[test]
+    fn test_source_builder_max_retries() {
+        let builder = SourceBuilder::new().max_retries(5);
+        assert_eq!(builder.config.max_retries, 5);
+    }
+
+    #[test]
+    fn test_source_builder_build_arxiv() {
+        let source = SourceBuilder::new().build_arxiv();
+        assert!(source.is_ok());
+    }
+
+    #[test]
+    fn test_source_builder_build_semantic_scholar() {
+        let source = SourceBuilder::new().build_semantic_scholar();
+        assert!(source.is_ok());
+    }
+
+    #[test]
+    fn test_source_builder_chained() {
+        let source = SourceBuilder::new()
+            .api_key("test-key")
+            .proxy("http://127.0.0.1:7890")
+            .timeout(60)
+            .max_retries(5)
+            .build_arxiv();
+
+        assert!(source.is_ok());
+    }
+}

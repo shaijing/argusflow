@@ -309,12 +309,159 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_identifier_parse() {
-        assert!(matches!(Identifier::parse("2301.00001"), Identifier::Arxiv(_)));
-        assert!(matches!(Identifier::parse("arxiv:2301.00001"), Identifier::Arxiv(_)));
-        assert!(matches!(Identifier::parse("10.1234/test"), Identifier::Doi(_)));
-        assert!(matches!(Identifier::parse("doi:10.1234/test"), Identifier::Doi(_)));
-        assert!(matches!(Identifier::parse("ss:abc123"), Identifier::SemanticScholar(_)));
-        assert!(matches!(Identifier::parse("https://arxiv.org/abs/2301.00001"), Identifier::Url(_)));
+    fn test_identifier_parse_arxiv_new_format() {
+        let id = Identifier::parse("2301.00001");
+        assert!(matches!(id, Identifier::Arxiv(_)));
+        assert_eq!(id.as_str(), "2301.00001");
+    }
+
+    #[test]
+    fn test_identifier_parse_arxiv_with_version() {
+        let id = Identifier::parse("2301.00001v2");
+        assert!(matches!(id, Identifier::Arxiv(_)));
+    }
+
+    #[test]
+    fn test_identifier_parse_arxiv_old_format() {
+        let id = Identifier::parse("math/0001001");
+        assert!(matches!(id, Identifier::Arxiv(_)));
+    }
+
+    #[test]
+    fn test_identifier_parse_arxiv_prefix() {
+        let id = Identifier::parse("arxiv:2301.00001");
+        assert!(matches!(id, Identifier::Arxiv(_)));
+        assert_eq!(id.as_str(), "2301.00001");
+    }
+
+    #[test]
+    fn test_identifier_parse_doi() {
+        let id = Identifier::parse("10.1234/test");
+        assert!(matches!(id, Identifier::Doi(_)));
+        assert_eq!(id.as_str(), "10.1234/test");
+    }
+
+    #[test]
+    fn test_identifier_parse_doi_prefix() {
+        let id = Identifier::parse("doi:10.1234/test");
+        assert!(matches!(id, Identifier::Doi(_)));
+    }
+
+    #[test]
+    fn test_identifier_parse_semantic_scholar() {
+        let id = Identifier::parse("ss:abc123def");
+        assert!(matches!(id, Identifier::SemanticScholar(_)));
+    }
+
+    #[test]
+    fn test_identifier_parse_url() {
+        let id = Identifier::parse("https://arxiv.org/abs/2301.00001");
+        assert!(matches!(id, Identifier::Url(_)));
+
+        let id2 = Identifier::parse("http://example.com");
+        assert!(matches!(id2, Identifier::Url(_)));
+    }
+
+    #[test]
+    fn test_identifier_parse_unknown() {
+        let id = Identifier::parse("unknown-format");
+        assert!(matches!(id, Identifier::Unknown(_)));
+    }
+
+    #[test]
+    fn test_is_arxiv_id_new_format() {
+        assert!(Identifier::is_arxiv_id("2301.00001"));
+        assert!(Identifier::is_arxiv_id("2301.00001v2"));
+        assert!(Identifier::is_arxiv_id("2301.1234"));
+        assert!(!Identifier::is_arxiv_id("230.00001")); // Too short year
+        assert!(!Identifier::is_arxiv_id("2301.001")); // Too short number
+    }
+
+    #[test]
+    fn test_is_arxiv_id_old_format() {
+        assert!(Identifier::is_arxiv_id("math/0001001"));
+        assert!(Identifier::is_arxiv_id("hep-th/9901001"));
+        assert!(!Identifier::is_arxiv_id("math/000100")); // Too short number
+    }
+
+    #[test]
+    fn test_source_kind_display() {
+        assert_eq!(SourceKind::Arxiv.to_string(), "arxiv");
+        assert_eq!(SourceKind::SemanticScholar.to_string(), "semantic_scholar");
+        assert_eq!(SourceKind::Custom("test").to_string(), "test");
+    }
+
+    #[test]
+    fn test_source_kind_as_str() {
+        assert_eq!(SourceKind::Arxiv.as_str(), "arxiv");
+        assert_eq!(SourceKind::SemanticScholar.as_str(), "semantic_scholar");
+        assert_eq!(SourceKind::Crossref.as_str(), "crossref");
+        assert_eq!(SourceKind::OpenAlex.as_str(), "openalex");
+        assert_eq!(SourceKind::Pubmed.as_str(), "pubmed");
+        assert_eq!(SourceKind::GoogleScholar.as_str(), "google_scholar");
+    }
+
+    #[test]
+    fn test_source_error_display() {
+        let err = SourceError::Network("timeout".to_string());
+        assert_eq!(err.to_string(), "网络错误: timeout");
+
+        let err = SourceError::Parse("invalid json".to_string());
+        assert_eq!(err.to_string(), "解析错误: invalid json");
+
+        let err = SourceError::RateLimit { retry_after: Some(60) };
+        assert_eq!(err.to_string(), "速率限制，请等待 60 秒后重试");
+
+        let err = SourceError::RateLimit { retry_after: None };
+        assert_eq!(err.to_string(), "速率限制，请稍后重试");
+
+        let err = SourceError::NotFound;
+        assert_eq!(err.to_string(), "未找到论文");
+
+        let err = SourceError::Other("custom error".to_string());
+        assert_eq!(err.to_string(), "错误: custom error");
+    }
+
+    #[test]
+    fn test_search_params_default() {
+        let params = SearchParams::default();
+        assert_eq!(params.query, "");
+        assert_eq!(params.offset, 0);
+        assert_eq!(params.limit, 10);
+        assert_eq!(params.sort_by, None);
+        assert_eq!(params.sort_order, None);
+    }
+
+    #[test]
+    fn test_search_result_default() {
+        let result = SearchResult::default();
+        assert_eq!(result.papers.len(), 0);
+        assert_eq!(result.total, None);
+        assert!(!result.has_more);
+    }
+
+    #[test]
+    fn test_source_config_default() {
+        let config = SourceConfig::default();
+        assert_eq!(config.api_key, None);
+        assert_eq!(config.proxy, None);
+        assert_eq!(config.timeout, 30);
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.retry_delay, 1000);
+    }
+
+    #[test]
+    fn test_source_capabilities() {
+        let caps = SourceCapabilities {
+            search: true,
+            get_by_id: true,
+            citations: false,
+            references: false,
+            authors: false,
+            pdf_download: true,
+        };
+        assert!(caps.search);
+        assert!(caps.get_by_id);
+        assert!(!caps.citations);
     }
 }

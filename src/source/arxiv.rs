@@ -223,3 +223,136 @@ impl PaperSource for ArxivSource {
         Ok(true)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_source() -> ArxivSource {
+        ArxivSource::new(SourceConfig::default()).unwrap()
+    }
+
+    #[test]
+    fn test_url_encode() {
+        assert_eq!(ArxivSource::url_encode("hello"), "hello");
+        assert_eq!(ArxivSource::url_encode("hello world"), "hello%20world");
+        assert_eq!(ArxivSource::url_encode("machine+learning"), "machine%2Blearning");
+        assert_eq!(ArxivSource::url_encode("test-123"), "test-123");
+        assert_eq!(ArxivSource::url_encode("test_abc"), "test_abc");
+    }
+
+    #[test]
+    fn test_build_search_url() {
+        let source = create_test_source();
+        let params = SearchParams {
+            query: "machine learning".to_string(),
+            offset: 0,
+            limit: 10,
+            sort_by: Some("relevance".to_string()),
+            sort_order: Some("descending".to_string()),
+        };
+
+        let url = source.build_search_url(&params);
+        assert!(url.contains("search_query=machine%20learning"));
+        assert!(url.contains("start=0"));
+        assert!(url.contains("max_results=10"));
+        assert!(url.contains("sortBy=relevance"));
+        assert!(url.contains("sortOrder=descending"));
+    }
+
+    #[test]
+    fn test_parse_empty_response() {
+        let source = create_test_source();
+        let xml = "";
+        let papers = source.parse_response(xml).unwrap();
+        assert_eq!(papers.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_single_entry() {
+        let source = create_test_source();
+        let xml = r#"
+<entry>
+    <title>Test Paper Title</title>
+    <summary>This is a test abstract.</summary>
+    <id>http://arxiv.org/abs/2301.00001</id>
+    <link href="https://arxiv.org/pdf/2301.00001" title="pdf"/>
+    <arxiv:doi>10.1234/test</arxiv:doi>
+</entry>
+"#;
+        let papers = source.parse_response(xml).unwrap();
+        assert_eq!(papers.len(), 1);
+        assert_eq!(papers[0].title, "Test Paper Title");
+        assert_eq!(papers[0].abstract_text, Some("This is a test abstract.".to_string()));
+        assert_eq!(papers[0].arxiv_id, Some("2301.00001".to_string()));
+        assert_eq!(papers[0].pdf_url, Some("https://arxiv.org/pdf/2301.00001".to_string()));
+    }
+
+    #[test]
+    fn test_parse_multiple_entries() {
+        let source = create_test_source();
+        let xml = r#"
+<entry>
+    <title>Paper 1</title>
+    <id>http://arxiv.org/abs/2301.00001</id>
+</entry>
+<entry>
+    <title>Paper 2</title>
+    <id>http://arxiv.org/abs/2301.00002</id>
+</entry>
+"#;
+        let papers = source.parse_response(xml).unwrap();
+        assert_eq!(papers.len(), 2);
+        assert_eq!(papers[0].title, "Paper 1");
+        assert_eq!(papers[1].title, "Paper 2");
+    }
+
+    #[test]
+    fn test_extract_tag() {
+        let source = create_test_source();
+        let xml = "<title>Test Title</title>";
+        assert_eq!(source.extract_tag(xml, "title"), Some("Test Title".to_string()));
+        assert_eq!(source.extract_tag(xml, "summary"), None);
+    }
+
+    #[test]
+    fn test_extract_pdf_link() {
+        let source = create_test_source();
+        let xml1 = r#"<link href="https://arxiv.org/pdf/2301.00001" title="pdf"/>"#;
+        assert_eq!(source.extract_pdf_link(xml1), Some("https://arxiv.org/pdf/2301.00001".to_string()));
+
+        let xml2 = r#"<link href="https://arxiv.org/pdf/2301.00002" type="application/pdf"/>"#;
+        assert_eq!(source.extract_pdf_link(xml2), Some("https://arxiv.org/pdf/2301.00002".to_string()));
+
+        let xml3 = r#"<link href="https://arxiv.org/abs/2301.00003"/>"#;
+        assert_eq!(source.extract_pdf_link(xml3), None);
+    }
+
+    #[test]
+    fn test_capabilities() {
+        let source = create_test_source();
+        let caps = source.capabilities();
+        assert!(caps.search);
+        assert!(caps.get_by_id);
+        assert!(!caps.citations);
+        assert!(!caps.references);
+        assert!(caps.pdf_download);
+    }
+
+    #[test]
+    fn test_source_kind() {
+        let source = create_test_source();
+        assert_eq!(source.kind(), SourceKind::Arxiv);
+        assert_eq!(source.name(), "arXiv");
+    }
+
+    #[test]
+    fn test_new_with_proxy() {
+        let config = SourceConfig {
+            proxy: Some("http://127.0.0.1:7890".to_string()),
+            ..Default::default()
+        };
+        let source = ArxivSource::new(config);
+        assert!(source.is_ok());
+    }
+}
