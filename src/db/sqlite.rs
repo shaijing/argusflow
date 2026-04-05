@@ -72,7 +72,7 @@ impl Database {
         let created_at = paper.created_at.to_rfc3339();
         let updated_at = paper.updated_at.to_rfc3339();
 
-        let id = self.conn.execute(
+        self.conn.execute(
             "INSERT INTO papers (title, abstract_text, arxiv_id, semantic_scholar_id, doi, pdf_url, local_pdf_path, publication_date, venue, citation_count, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
@@ -91,7 +91,15 @@ impl Database {
             ],
         )?;
 
-        Ok(self.conn.last_insert_rowid())
+        let paper_id = self.conn.last_insert_rowid();
+
+        // 插入作者并建立关联
+        for (order, author) in paper.authors.iter().enumerate() {
+            let author_id = self.insert_author(author)?;
+            self.link_paper_author(paper_id, author_id, order as i32)?;
+        }
+
+        Ok(paper_id)
     }
 
     pub fn get_paper_by_id(&self, id: i64) -> Result<Option<Paper>> {
@@ -113,14 +121,17 @@ impl Database {
                 publication_date: row.get(8)?,
                 venue: row.get(9)?,
                 citation_count: row.get(10)?,
-                authors: Vec::new(), // 从数据库读取时暂不加载作者
+                authors: Vec::new(), // 稍后加载
                 created_at: row.get::<_, String>(11)?.parse().unwrap_or(Utc::now()),
                 updated_at: row.get::<_, String>(12)?.parse().unwrap_or(Utc::now()),
             })
         });
 
         match result {
-            Ok(paper) => Ok(Some(paper)),
+            Ok(mut paper) => {
+                paper.authors = self.get_paper_authors(id)?;
+                Ok(Some(paper))
+            }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
@@ -145,14 +156,19 @@ impl Database {
                 publication_date: row.get(8)?,
                 venue: row.get(9)?,
                 citation_count: row.get(10)?,
-                authors: Vec::new(), // 从数据库读取时暂不加载作者
+                authors: Vec::new(),
                 created_at: row.get::<_, String>(11)?.parse().unwrap_or(Utc::now()),
                 updated_at: row.get::<_, String>(12)?.parse().unwrap_or(Utc::now()),
             })
         });
 
         match result {
-            Ok(paper) => Ok(Some(paper)),
+            Ok(mut paper) => {
+                if let Some(paper_id) = paper.id {
+                    paper.authors = self.get_paper_authors(paper_id)?;
+                }
+                Ok(Some(paper))
+            }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
@@ -184,7 +200,12 @@ impl Database {
         });
 
         match result {
-            Ok(paper) => Ok(Some(paper)),
+            Ok(mut paper) => {
+                if let Some(paper_id) = paper.id {
+                    paper.authors = self.get_paper_authors(paper_id)?;
+                }
+                Ok(Some(paper))
+            }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
@@ -241,7 +262,13 @@ impl Database {
             })
         })?;
 
-        papers.collect::<Result<Vec<_>, _>>().map_err(|e| e.into())
+        let mut papers: Vec<Paper> = papers.collect::<Result<Vec<_>, _>>()?;
+        for paper in &mut papers {
+            if let Some(id) = paper.id {
+                paper.authors = self.get_paper_authors(id)?;
+            }
+        }
+        Ok(papers)
     }
 
     // Author CRUD
@@ -354,6 +381,12 @@ impl Database {
             })
         })?;
 
-        papers.collect::<Result<Vec<_>, _>>().map_err(|e| e.into())
+        let mut papers: Vec<Paper> = papers.collect::<Result<Vec<_>, _>>()?;
+        for paper in &mut papers {
+            if let Some(id) = paper.id {
+                paper.authors = self.get_paper_authors(id)?;
+            }
+        }
+        Ok(papers)
     }
 }

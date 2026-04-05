@@ -205,9 +205,10 @@ fn list_papers(ctx: &CommandContext, limit: usize) -> Result<()> {
     println!("共 {} 篇论文:", papers.len());
     for paper in papers {
         println!("\nID: {}", paper.id.unwrap());
-        println!("标题: {}", paper.title); 
+        println!("标题: {}", paper.title);
         println!("arXiv: {}", paper.arxiv_id.as_deref().unwrap_or("N/A"));
         println!("SS: {}", paper.semantic_scholar_id.as_deref().unwrap_or("N/A"));
+        print_authors(&paper.authors);
         println!("引用数: {}", paper.citation_count);
     }
     Ok(())
