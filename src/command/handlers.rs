@@ -10,6 +10,7 @@ pub async fn execute(ctx: &CommandContext, command: &Commands) -> Result<()> {
     match command {
         Commands::ArxivSearch { query, limit } => search_arxiv(ctx, query, *limit).await,
         Commands::SsSearch { query, limit } => search_ss(ctx, query, *limit).await,
+        Commands::OaSearch { query, limit } => search_oa(ctx, query, *limit).await,
         Commands::Search { query, limit } => smart_search(ctx, query, *limit).await,
         Commands::Get { id } => get_by_identifier(ctx, id).await,
         Commands::GetArxiv { id } => get_arxiv(ctx, id).await,
@@ -84,6 +85,34 @@ async fn search_ss(ctx: &CommandContext, query: &str, limit: usize) -> Result<()
         println!("[DB ID: {}] [来源: {}]", paper_id, source.name());
         println!("标题: {}", paper.title);
         println!("SS ID: {}", paper.semantic_scholar_id.as_deref().unwrap_or("N/A"));
+        print_authors(&paper.authors);
+        println!("引用数: {}", paper.citation_count);
+        println!("PDF: {}", paper.pdf_url.as_deref().unwrap_or("N/A"));
+    }
+
+    Ok(())
+}
+
+async fn search_oa(ctx: &CommandContext, query: &str, limit: usize) -> Result<()> {
+    let source = ctx.manager.get(SourceKind::OpenAlex)
+        .ok_or_else(|| anyhow::anyhow!("OpenAlex 源未注册"))?;
+
+    let params = SearchParams {
+        query: query.to_string(),
+        limit,
+        ..Default::default()
+    };
+
+    let result = source.search(&params).await?;
+
+    println!("找到 {} 篇论文 (总计: {}):", result.papers.len(), result.total.unwrap_or(0));
+    for paper in &result.papers {
+        let paper_id = ctx.cache_paper(paper).await?;
+
+        println!("\n---");
+        println!("[DB ID: {}] [来源: {}]", paper_id, source.name());
+        println!("标题: {}", paper.title);
+        println!("OpenAlex ID: {}", paper.semantic_scholar_id.as_deref().unwrap_or("N/A"));
         print_authors(&paper.authors);
         println!("引用数: {}", paper.citation_count);
         println!("PDF: {}", paper.pdf_url.as_deref().unwrap_or("N/A"));

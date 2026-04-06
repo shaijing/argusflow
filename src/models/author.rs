@@ -5,6 +5,8 @@ pub struct Author {
     pub id: Option<i64>,
     pub name: String,
     pub semantic_scholar_id: Option<String>,
+    #[serde(default)]
+    pub orcid: Option<String>,
 }
 
 impl Author {
@@ -13,11 +15,17 @@ impl Author {
             id: None,
             name,
             semantic_scholar_id: None,
+            orcid: None,
         }
     }
 
     pub fn with_semantic_scholar_id(mut self, ss_id: String) -> Self {
         self.semantic_scholar_id = Some(ss_id);
+        self
+    }
+
+    pub fn with_orcid(mut self, orcid: String) -> Self {
+        self.orcid = Some(orcid);
         self
     }
 }

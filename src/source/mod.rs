@@ -2,10 +2,12 @@
 
 mod arxiv;
 mod manager;
+mod openalex;
 mod semantic_scholar;
 
 pub use arxiv::*;
 pub use manager::*;
+pub use openalex::*;
 pub use semantic_scholar::*;
 
 use crate::models::{Author, Paper};

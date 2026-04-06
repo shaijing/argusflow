@@ -62,6 +62,14 @@ pub enum Commands {
         limit: usize,
     },
 
+    /// 从 OpenAlex 搜索论文
+    OaSearch {
+        #[arg(short, long)]
+        query: String,
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+    },
+
     /// 智能搜索（从所有源搜索）
     Search {
         #[arg(short, long)]

@@ -89,6 +89,12 @@ impl Paper {
         self
     }
 
+    pub fn with_publication_date(mut self, date: String) -> Self {
+        self.publication_date = Some(date);
+        self.updated_at = Utc::now();
+        self
+    }
+
     pub fn with_authors(mut self, authors: Vec<Author>) -> Self {
         self.authors = authors;
         self.updated_at = Utc::now();

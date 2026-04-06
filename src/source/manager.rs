@@ -211,6 +211,10 @@ impl SourceBuilder {
     pub fn build_semantic_scholar(self) -> Result<SemanticScholarSource, SourceError> {
         SemanticScholarSource::new(self.config)
     }
+
+    pub fn build_openalex(self) -> Result<OpenAlexSource, SourceError> {
+        OpenAlexSource::new(self.config)
+    }
 }
 
 impl Default for SourceBuilder {

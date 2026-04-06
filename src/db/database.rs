@@ -150,6 +150,7 @@ impl Database {
                         id: Some(a.id),
                         name: a.name,
                         semantic_scholar_id: a.semantic_scholar_id,
+                        orcid: None,
                     })
                     .collect();
 
@@ -228,6 +229,7 @@ impl Database {
                     id: Some(model.id),
                     name: model.name,
                     semantic_scholar_id: model.semantic_scholar_id,
+                    orcid: None,
                 });
             }
         }
@@ -283,6 +285,7 @@ impl Database {
                         id: Some(a.id),
                         name: a.name,
                         semantic_scholar_id: a.semantic_scholar_id,
+                        orcid: None,
                     })
                     .collect();
 
@@ -360,6 +363,7 @@ impl Database {
                         id: Some(a.id),
                         name: a.name,
                         semantic_scholar_id: a.semantic_scholar_id,
+                        orcid: None,
                     })
                     .collect();
 
@@ -404,6 +408,7 @@ impl Database {
                         id: Some(a.id),
                         name: a.name,
                         semantic_scholar_id: a.semantic_scholar_id,
+                        orcid: None,
                     })
                     .collect();
 
@@ -470,6 +475,7 @@ impl Database {
                         id: Some(a.id),
                         name: a.name,
                         semantic_scholar_id: a.semantic_scholar_id,
+                        orcid: None,
                     })
                     .collect();
 

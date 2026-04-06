@@ -103,5 +103,17 @@ fn build_manager(config: &Config) -> Result<SourceManager> {
     }
     manager.register(ss_builder.build_semantic_scholar()?);
 
+    // Register OpenAlex
+    let mut oa_builder = SourceBuilder::new()
+        .timeout(30)
+        .max_retries(3);
+
+    if let Some(ref proxy) = config.proxy {
+        if !proxy.is_empty() {
+            oa_builder = oa_builder.proxy(proxy);
+        }
+    }
+    manager.register(oa_builder.build_openalex()?);
+
     Ok(manager)
 }
