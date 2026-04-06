@@ -28,4 +28,10 @@ pub enum Relation {
     Authors,
 }
 
+impl Related<super::papers::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Papers.def()
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}

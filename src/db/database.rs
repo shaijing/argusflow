@@ -132,19 +132,45 @@ impl Database {
     }
 
     pub async fn list_papers(&self, limit: i64) -> Result<Vec<Paper>> {
-        let models = papers::Entity::find()
+        use sea_orm::QuerySelect;
+
+        let results: Vec<(papers::Model, Vec<authors::Model>)> = papers::Entity::find()
             .order_by_desc(papers::Column::CreatedAt)
             .limit(limit as u64)
+            .find_with_related(authors::Entity)
             .all(&self.conn)
             .await?;
 
-        let mut papers = Vec::new();
-        for model in models {
-            let authors = self.get_paper_authors(model.id).await?;
-            papers.push(model_to_paper(model, authors));
-        }
+        Ok(results
+            .into_iter()
+            .map(|(paper, author_models)| {
+                let authors = author_models
+                    .into_iter()
+                    .map(|a| Author {
+                        id: Some(a.id),
+                        name: a.name,
+                        semantic_scholar_id: a.semantic_scholar_id,
+                    })
+                    .collect();
 
-        Ok(papers)
+                Paper {
+                    id: Some(paper.id),
+                    title: paper.title,
+                    abstract_text: paper.abstract_text,
+                    arxiv_id: paper.arxiv_id,
+                    semantic_scholar_id: paper.semantic_scholar_id,
+                    doi: paper.doi,
+                    pdf_url: paper.pdf_url,
+                    local_pdf_path: paper.local_pdf_path,
+                    publication_date: paper.publication_date,
+                    venue: paper.venue,
+                    citation_count: paper.citation_count,
+                    authors,
+                    created_at: paper.created_at,
+                    updated_at: paper.updated_at,
+                }
+            })
+            .collect())
     }
 
     // Author CRUD
@@ -240,20 +266,44 @@ impl Database {
 
     // Search papers by title
     pub async fn search_papers(&self, query: &str, limit: i64) -> Result<Vec<Paper>> {
-        let models = papers::Entity::find()
+        let results: Vec<(papers::Model, Vec<authors::Model>)> = papers::Entity::find()
             .filter(papers::Column::Title.contains(query))
             .order_by_desc(papers::Column::CitationCount)
             .limit(limit as u64)
+            .find_with_related(authors::Entity)
             .all(&self.conn)
             .await?;
 
-        let mut papers = Vec::new();
-        for model in models {
-            let authors = self.get_paper_authors(model.id).await?;
-            papers.push(model_to_paper(model, authors));
-        }
+        Ok(results
+            .into_iter()
+            .map(|(paper, author_models)| {
+                let authors = author_models
+                    .into_iter()
+                    .map(|a| Author {
+                        id: Some(a.id),
+                        name: a.name,
+                        semantic_scholar_id: a.semantic_scholar_id,
+                    })
+                    .collect();
 
-        Ok(papers)
+                Paper {
+                    id: Some(paper.id),
+                    title: paper.title,
+                    abstract_text: paper.abstract_text,
+                    arxiv_id: paper.arxiv_id,
+                    semantic_scholar_id: paper.semantic_scholar_id,
+                    doi: paper.doi,
+                    pdf_url: paper.pdf_url,
+                    local_pdf_path: paper.local_pdf_path,
+                    publication_date: paper.publication_date,
+                    venue: paper.venue,
+                    citation_count: paper.citation_count,
+                    authors,
+                    created_at: paper.created_at,
+                    updated_at: paper.updated_at,
+                }
+            })
+            .collect())
     }
 }
 
