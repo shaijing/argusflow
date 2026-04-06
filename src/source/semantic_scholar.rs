@@ -61,7 +61,8 @@ struct SsOpenAccess {
 
 #[derive(Debug, Deserialize)]
 struct SsCitationsResponse {
-    data: Vec<SsCitation>,
+    #[serde(default)]
+    data: Option<Vec<SsCitation>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +82,8 @@ struct SsCitingPaper {
 
 #[derive(Debug, Deserialize)]
 struct SsReferencesResponse {
-    data: Vec<SsReference>,
+    #[serde(default)]
+    data: Option<Vec<SsReference>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -312,7 +314,7 @@ impl PaperSource for SemanticScholarSource {
 
         let response: SsCitationsResponse = self.fetch_with_retry(&url).await?;
 
-        Ok(response.data.into_iter().filter_map(|c| {
+        Ok(response.data.unwrap_or_default().into_iter().filter_map(|c| {
             if let Some(citing) = c.citing_paper {
                 let paper = Paper::new(citing.title.unwrap_or_default())
                     .with_semantic_scholar_id(citing.paper_id);
@@ -334,7 +336,7 @@ impl PaperSource for SemanticScholarSource {
 
         let response: SsReferencesResponse = self.fetch_with_retry(&url).await?;
 
-        Ok(response.data.into_iter().filter_map(|r| {
+        Ok(response.data.unwrap_or_default().into_iter().filter_map(|r| {
             if let Some(cited) = r.cited_paper {
                 let paper = Paper::new(cited.title.unwrap_or_default())
                     .with_semantic_scholar_id(cited.paper_id);

@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Database as SeaDatabase, DatabaseConnection, EntityTrait,
-    QueryFilter, QueryOrder, QuerySelect, Set,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use std::path::Path;
 
@@ -268,6 +268,193 @@ impl Database {
     pub async fn search_papers(&self, query: &str, limit: i64) -> Result<Vec<Paper>> {
         let results: Vec<(papers::Model, Vec<authors::Model>)> = papers::Entity::find()
             .filter(papers::Column::Title.contains(query))
+            .order_by_desc(papers::Column::CitationCount)
+            .limit(limit as u64)
+            .find_with_related(authors::Entity)
+            .all(&self.conn)
+            .await?;
+
+        Ok(results
+            .into_iter()
+            .map(|(paper, author_models)| {
+                let authors = author_models
+                    .into_iter()
+                    .map(|a| Author {
+                        id: Some(a.id),
+                        name: a.name,
+                        semantic_scholar_id: a.semantic_scholar_id,
+                    })
+                    .collect();
+
+                Paper {
+                    id: Some(paper.id),
+                    title: paper.title,
+                    abstract_text: paper.abstract_text,
+                    arxiv_id: paper.arxiv_id,
+                    semantic_scholar_id: paper.semantic_scholar_id,
+                    doi: paper.doi,
+                    pdf_url: paper.pdf_url,
+                    local_pdf_path: paper.local_pdf_path,
+                    publication_date: paper.publication_date,
+                    venue: paper.venue,
+                    citation_count: paper.citation_count,
+                    authors,
+                    created_at: paper.created_at,
+                    updated_at: paper.updated_at,
+                }
+            })
+            .collect())
+    }
+
+    // === New methods for optimization ===
+
+    /// Delete a paper (cascade deletes paper_authors links)
+    pub async fn delete_paper(&self, id: i64) -> Result<bool> {
+        // First delete paper_author links
+        paper_authors::Entity::delete_many()
+            .filter(paper_authors::Column::PaperId.eq(id))
+            .exec(&self.conn)
+            .await?;
+
+        // Delete citation links
+        citations::Entity::delete_many()
+            .filter(citations::Column::CitingPaperId.eq(id))
+            .exec(&self.conn)
+            .await?;
+        citations::Entity::delete_many()
+            .filter(citations::Column::CitedPaperId.eq(id))
+            .exec(&self.conn)
+            .await?;
+
+        // Delete the paper
+        let result = papers::Entity::delete_by_id(id)
+            .exec(&self.conn)
+            .await?;
+
+        Ok(result.rows_affected > 0)
+    }
+
+    /// Get total paper count
+    pub async fn count_papers(&self) -> Result<i64> {
+        let count = papers::Entity::find()
+            .count(&self.conn)
+            .await?;
+        Ok(count as i64)
+    }
+
+    /// Get top cited papers
+    pub async fn top_cited_papers(&self, limit: i64) -> Result<Vec<Paper>> {
+        let results: Vec<(papers::Model, Vec<authors::Model>)> = papers::Entity::find()
+            .order_by_desc(papers::Column::CitationCount)
+            .limit(limit as u64)
+            .find_with_related(authors::Entity)
+            .all(&self.conn)
+            .await?;
+
+        Ok(results
+            .into_iter()
+            .map(|(paper, author_models)| {
+                let authors = author_models
+                    .into_iter()
+                    .map(|a| Author {
+                        id: Some(a.id),
+                        name: a.name,
+                        semantic_scholar_id: a.semantic_scholar_id,
+                    })
+                    .collect();
+
+                Paper {
+                    id: Some(paper.id),
+                    title: paper.title,
+                    abstract_text: paper.abstract_text,
+                    arxiv_id: paper.arxiv_id,
+                    semantic_scholar_id: paper.semantic_scholar_id,
+                    doi: paper.doi,
+                    pdf_url: paper.pdf_url,
+                    local_pdf_path: paper.local_pdf_path,
+                    publication_date: paper.publication_date,
+                    venue: paper.venue,
+                    citation_count: paper.citation_count,
+                    authors,
+                    created_at: paper.created_at,
+                    updated_at: paper.updated_at,
+                }
+            })
+            .collect())
+    }
+
+    /// Get papers added in the last N days
+    pub async fn recent_papers(&self, days: i64) -> Result<Vec<Paper>> {
+        let cutoff = Utc::now() - chrono::Duration::days(days);
+        let cutoff_naive = cutoff.naive_utc();
+
+        let results: Vec<(papers::Model, Vec<authors::Model>)> = papers::Entity::find()
+            .filter(papers::Column::CreatedAt.gte(cutoff_naive.and_utc()))
+            .order_by_desc(papers::Column::CreatedAt)
+            .find_with_related(authors::Entity)
+            .all(&self.conn)
+            .await?;
+
+        Ok(results
+            .into_iter()
+            .map(|(paper, author_models)| {
+                let authors = author_models
+                    .into_iter()
+                    .map(|a| Author {
+                        id: Some(a.id),
+                        name: a.name,
+                        semantic_scholar_id: a.semantic_scholar_id,
+                    })
+                    .collect();
+
+                Paper {
+                    id: Some(paper.id),
+                    title: paper.title,
+                    abstract_text: paper.abstract_text,
+                    arxiv_id: paper.arxiv_id,
+                    semantic_scholar_id: paper.semantic_scholar_id,
+                    doi: paper.doi,
+                    pdf_url: paper.pdf_url,
+                    local_pdf_path: paper.local_pdf_path,
+                    publication_date: paper.publication_date,
+                    venue: paper.venue,
+                    citation_count: paper.citation_count,
+                    authors,
+                    created_at: paper.created_at,
+                    updated_at: paper.updated_at,
+                }
+            })
+            .collect())
+    }
+
+    /// Search papers by author name
+    pub async fn search_by_author(&self, name: &str, limit: i64) -> Result<Vec<Paper>> {
+        // Find authors matching the name
+        let matching_authors = authors::Entity::find()
+            .filter(authors::Column::Name.contains(name))
+            .all(&self.conn)
+            .await?;
+
+        let author_ids: Vec<i64> = matching_authors.iter().map(|a| a.id).collect();
+
+        if author_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Find papers by these authors
+        let links = paper_authors::Entity::find()
+            .filter(paper_authors::Column::AuthorId.is_in(author_ids))
+            .all(&self.conn)
+            .await?;
+
+        let paper_ids: Vec<i64> = links.iter().map(|l| l.paper_id).collect();
+
+        if paper_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let results: Vec<(papers::Model, Vec<authors::Model>)> = papers::Entity::find()
+            .filter(papers::Column::Id.is_in(paper_ids))
             .order_by_desc(papers::Column::CitationCount)
             .limit(limit as u64)
             .find_with_related(authors::Entity)
