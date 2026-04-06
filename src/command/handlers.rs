@@ -15,9 +15,9 @@ pub async fn execute(ctx: &CommandContext, command: &Commands) -> Result<()> {
         Commands::Citations { paper_id, limit } => get_citations(ctx, paper_id, *limit).await,
         Commands::References { paper_id, limit } => get_references(ctx, paper_id, *limit).await,
         Commands::Download { id } => download_pdf(ctx, id).await,
-        Commands::Save { title, arxiv_id, ss_id } => save_paper(ctx, title, arxiv_id, ss_id),
-        Commands::List { limit } => list_papers(ctx, *limit),
-        Commands::LocalSearch { query, limit } => local_search(ctx, query, *limit),
+        Commands::Save { title, arxiv_id, ss_id } => save_paper(ctx, title, arxiv_id, ss_id).await,
+        Commands::List { limit } => list_papers(ctx, *limit).await,
+        Commands::LocalSearch { query, limit } => local_search(ctx, query, *limit).await,
         Commands::Config => show_config(ctx),
         Commands::Sources => show_sources(ctx),
     }
@@ -185,7 +185,7 @@ async fn download_pdf(ctx: &CommandContext, id: &str) -> Result<()> {
     Ok(())
 }
 
-fn save_paper(ctx: &CommandContext, title: &str, arxiv_id: &Option<String>, ss_id: &Option<String>) -> Result<()> {
+async fn save_paper(ctx: &CommandContext, title: &str, arxiv_id: &Option<String>, ss_id: &Option<String>) -> Result<()> {
     let mut paper = Paper::new(title.to_string());
     if let Some(arxiv) = arxiv_id {
         paper = paper.with_arxiv_id(arxiv.clone());
@@ -194,13 +194,13 @@ fn save_paper(ctx: &CommandContext, title: &str, arxiv_id: &Option<String>, ss_i
         paper = paper.with_semantic_scholar_id(ss.clone());
     }
 
-    let id = ctx.db.insert_paper(&paper)?;
+    let id = ctx.db.insert_paper(&paper).await?;
     println!("论文已保存，ID: {}", id);
     Ok(())
 }
 
-fn list_papers(ctx: &CommandContext, limit: usize) -> Result<()> {
-    let papers = ctx.db.list_papers(limit as i64)?;
+async fn list_papers(ctx: &CommandContext, limit: usize) -> Result<()> {
+    let papers = ctx.db.list_papers(limit as i64).await?;
 
     println!("共 {} 篇论文:", papers.len());
     for paper in papers {
@@ -214,8 +214,8 @@ fn list_papers(ctx: &CommandContext, limit: usize) -> Result<()> {
     Ok(())
 }
 
-fn local_search(ctx: &CommandContext, query: &str, limit: usize) -> Result<()> {
-    let papers = ctx.db.search_papers(query, limit as i64)?;
+async fn local_search(ctx: &CommandContext, query: &str, limit: usize) -> Result<()> {
+    let papers = ctx.db.search_papers(query, limit as i64).await?;
 
     println!("找到 {} 篇论文:", papers.len());
     for paper in papers {

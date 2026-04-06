@@ -1,3 +1,7 @@
-pub mod sqlite;
+//! Database module
 
-pub use sqlite::*;
+pub mod entity;
+pub mod migration;
+pub mod database;
+
+pub use database::*;

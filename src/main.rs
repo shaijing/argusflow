@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
         cli.db_path,
         cli.ss_api_key,
         cli.proxy,
-    )?;
+    ).await?;
 
     execute(&ctx, &cli.command).await?;
 

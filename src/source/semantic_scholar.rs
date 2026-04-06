@@ -17,6 +17,7 @@ struct SsSearchResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct SsPaper {
     #[serde(rename = "paperId")]
     paper_id: String,

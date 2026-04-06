@@ -15,7 +15,7 @@ pub struct CommandContext {
 
 impl CommandContext {
     /// 从 CLI 参数构建上下文
-    pub fn from_cli(
+    pub async fn from_cli(
         pdf_dir: Option<std::path::PathBuf>,
         db_path: Option<std::path::PathBuf>,
         ss_api_key: Option<String>,
@@ -37,7 +37,7 @@ impl CommandContext {
 
         config.ensure_dirs()?;
 
-        let db = Database::new(&config.db_path)?;
+        let db = Database::new(&config.db_path).await?;
         let manager = build_manager(&config)?;
 
         Ok(Self { config, db, manager })
@@ -52,13 +52,13 @@ impl CommandContext {
     pub async fn cache_paper(&self, paper: &crate::Paper) -> Result<i64> {
         let cached = if let Some(arxiv_id) = &paper.arxiv_id {
             if !arxiv_id.is_empty() {
-                self.db.get_paper_by_arxiv_id(arxiv_id)?
+                self.db.get_paper_by_arxiv_id(arxiv_id).await?
             } else {
                 None
             }
         } else if let Some(ss_id) = &paper.semantic_scholar_id {
             if !ss_id.is_empty() {
-                self.db.get_paper_by_semantic_scholar_id(ss_id)?
+                self.db.get_paper_by_semantic_scholar_id(ss_id).await?
             } else {
                 None
             }
@@ -68,7 +68,7 @@ impl CommandContext {
 
         match cached {
             Some(existing) => Ok(existing.id.unwrap()),
-            None => self.db.insert_paper(paper),
+            None => self.db.insert_paper(paper).await,
         }
     }
 }
