@@ -3,7 +3,7 @@
 //! CLI 层 - 仅负责调用核心 API 和格式化输出
 
 use super::{CommandContext, Commands};
-use crate::{GraphFormat, OutputFormat, SortBy, SourceKind};
+use argusflow_core::{GraphFormat, OutputFormat, Paper, SortBy, SourceKind};
 use anyhow::Result;
 use std::fs::File;
 use std::io::Write;
@@ -175,7 +175,7 @@ async fn download_pdf(ctx: &CommandContext, id: &str) -> Result<()> {
 }
 
 async fn save_paper(ctx: &CommandContext, title: &str, arxiv_id: &Option<String>, ss_id: &Option<String>) -> Result<()> {
-    let mut paper = crate::Paper::new(title.to_string());
+    let mut paper = Paper::new(title.to_string());
     if let Some(arxiv) = arxiv_id {
         paper = paper.with_arxiv_id(arxiv.clone());
     }
@@ -352,7 +352,7 @@ async fn sync_citations(ctx: &CommandContext, batch: usize) -> Result<()> {
 
 // === 辅助函数 ===
 
-fn print_identifier(paper: &crate::Paper) {
+fn print_identifier(paper: &Paper) {
     if let Some(arxiv_id) = &paper.arxiv_id {
         if !arxiv_id.is_empty() {
             println!("arXiv ID: {}", arxiv_id);
@@ -365,14 +365,14 @@ fn print_identifier(paper: &crate::Paper) {
     }
 }
 
-fn print_authors(authors: &[crate::Author]) {
+fn print_authors(authors: &[argusflow_core::Author]) {
     if !authors.is_empty() {
         let names: Vec<&str> = authors.iter().map(|a| a.name.as_str()).collect();
         println!("作者: {}", names.join(", "));
     }
 }
 
-fn print_paper_detail(db_id: i64, source: impl std::fmt::Display, paper: &crate::Paper) {
+fn print_paper_detail(db_id: i64, source: impl std::fmt::Display, paper: &Paper) {
     println!("[DB ID: {}] [来源: {}]", db_id, source);
     println!("标题: {}", paper.title);
     print_identifier(paper);

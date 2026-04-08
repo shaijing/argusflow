@@ -1,0 +1,28 @@
+[package]
+name = "argusflow-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI tool for paper search and management"
+default-run = "argusflow"
+
+[dependencies]
+argusflow-core.workspace = true
+
+# Async
+tokio.workspace = true
+
+# Error Handling
+anyhow.workspace = true
+
+# CLI
+clap.workspace = true
+
+# Utilities
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[[bin]]
+name = "argusflow"
+path = "src/main.rs"

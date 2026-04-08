@@ -1,9 +1,14 @@
 use anyhow::Result;
-use argusflow::command::{Cli, CommandContext, execute};
 use clap::Parser;
+
+mod command;
+use command::{Cli, CommandContext, execute};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize logging
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
 
     let ctx = CommandContext::from_cli(

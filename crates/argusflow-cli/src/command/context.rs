@@ -1,6 +1,6 @@
 //! 命令执行上下文
 
-use crate::{ArgusFlow, ArgusFlowBuilder, Config, SourceManager};
+use argusflow_core::{ArgusFlow, ArgusFlowBuilder, Config, SourceManager};
 use anyhow::Result;
 
 /// 命令执行所需的上下文
@@ -49,7 +49,7 @@ impl CommandContext {
     }
 
     /// 缓存论文到数据库（便捷方法）
-    pub async fn cache_paper(&self, paper: &crate::Paper) -> Result<i64> {
+    pub async fn cache_paper(&self, paper: &argusflow_core::Paper) -> Result<i64> {
         self.core.save(paper).await
     }
 }

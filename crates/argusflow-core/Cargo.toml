@@ -1,0 +1,40 @@
+[package]
+name = "argusflow-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Core library for paper search and management"
+
+[dependencies]
+# Async
+async-trait.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+
+# HTTP
+reqwest.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Database
+sea-orm.workspace = true
+sea-orm-migration.workspace = true
+
+# Date/Time
+chrono.workspace = true
+
+# Error Handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Utilities
+dirs.workspace = true
+toml.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

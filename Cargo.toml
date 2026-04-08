@@ -1,24 +1,50 @@
-[package]
-name = "argusflow"
+[workspace]
+resolver = "2"
+members = [
+    "crates/argusflow-core",
+    "crates/argusflow-cli",
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+authors = ["ArgusFlow Team"]
+license = "MIT"
+repository = "https://github.com/argusflow/argusflow"
 
-[dependencies]
-anyhow = "1.0.102"
-async-openai = "0.34.0"
+[workspace.dependencies]
+# Async & Runtime
 async-trait = "0.1"
-chrono = { version = "0.4.44", features = ["serde"] }
-clap = { version = "4.6.0", features = ["derive"] }
-dirs = "6.0"
+tokio = { version = "1.50.0", features = ["full"] }
 futures-util = "0.3"
+
+# HTTP Client
 reqwest = { version = "0.12", features = ["json", "stream"] }
-sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-sea-orm-migration = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls"] }
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# Database
+sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm-migration = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls"] }
+
+# Date/Time
+chrono = { version = "0.4.44", features = ["serde"] }
+
+# Error Handling
+anyhow = "1.0.102"
 thiserror = "2.0.18"
-tokio = { version = "1.50.0", features = ["full"] }
-tokio-util = { version = "0.7", features = ["io"] }
+
+# CLI
+clap = { version = "4.6.0", features = ["derive"] }
+
+# Utilities
+dirs = "6.0"
 toml = "1.1.0"
+tokio-util = { version = "0.7", features = ["io"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter"] }
+
+# Internal crates
+argusflow-core = { path = "crates/argusflow-core" }
