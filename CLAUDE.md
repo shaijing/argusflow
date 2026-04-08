@@ -4,14 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ArgusFlow is a CLI tool for literature/paper search and organization. It integrates with multiple academic paper sources (arXiv, Semantic Scholar) to search, fetch, and manage research papers locally.
+ArgusFlow is a CLI tool for literature/paper search and organization. It integrates with multiple academic paper sources (arXiv, Semantic Scholar, OpenAlex) to search, fetch, and manage research papers locally.
+
+## Workspace Structure
+
+```
+argusflow/
+├── Cargo.toml              # Workspace definition
+├── crates/
+│   ├── argusflow-core/     # Core library (can be published to crates.io)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── config.rs
+│   │       ├── core/       # ArgusFlow main entry point
+│   │       ├── models/     # Paper, Author, Citation
+│   │       ├── source/     # PaperSource trait, implementations
+│   │       ├── db/         # Database layer (SeaORM)
+│   │       ├── pdf/        # PDF downloader
+│   │       ├── citation/   # Citation graph utilities
+│   │       └── output/     # Output formatters
+│   └── argusflow-cli/      # CLI application
+│       ├── Cargo.toml
+│       └── src/
+│           ├── main.rs
+│           └── command/    # CLI commands and handlers
+```
 
 ## Build Commands
 
 ```bash
-cargo build                  # Build the project
-cargo test                   # Run all unit tests (tests are inline in source files)
-cargo test --lib             # Run library tests only
+cargo build                  # Build the entire workspace
+cargo test                   # Run all unit tests
+cargo test -p argusflow-core # Run only core library tests
 cargo run -- <command>       # Run CLI with a command
 cargo clippy                 # Run linter
 ```
@@ -22,12 +47,13 @@ cargo clippy                 # Run linter
 # Search papers
 cargo run -- arxiv-search -q "machine learning" -l 10
 cargo run -- ss-search -q "attention mechanism" -l 10
+cargo run -- oa-search -q "deep learning" -l 10
 cargo run -- search -q "transformers" -l 10  # smart search across all sources
 
 # Get paper by identifier (auto-detects source)
 cargo run -- get -i "2301.00001"        # arXiv ID
 cargo run -- get -i "doi:10.1234/test" # DOI
-cargo run -- get -i "ss:abc123"        # Semantic Scholar ID
+cargo run -- get -i "ss:abc123"         # Semantic Scholar ID
 
 # Citation graph
 cargo run -- citations -i "paper-id" -l 50
@@ -48,57 +74,48 @@ cargo run -- --ss-api-key "YOUR_KEY" ss-search -q "test"
 
 ## Architecture
 
-### Source Abstraction (`src/source/mod.rs`)
+### Core Library (`argusflow-core`)
 
-The `PaperSource` trait defines the interface for all paper sources. Each source implements:
-- `search()` - Search papers by query
-- `get_by_id()` / `get_by_identifier()` - Fetch by specific ID
-- `get_citations()` / `get_references()` - Citation graph traversal
-- `capabilities()` - Returns `SourceCapabilities` struct indicating supported features
+The core library provides all paper management functionality without CLI dependencies.
 
-Key types:
-- `SourceKind` enum: Arxiv, SemanticScholar, Crossref, OpenAlex, Pubmed, etc.
-- `Identifier` enum: Parses identifiers like `arxiv:2301.00001`, `doi:10.xxxx`, `ss:abc123`
-- `SourceManager`: Registry for sources with smart routing
-- `SourceBuilder`: Builder pattern for constructing sources with config (proxy, API key, timeout)
+**Entry Point**: `ArgusFlow` struct with `ArgusFlowBuilder` for configuration.
 
-### Data Models (`src/models/`)
+**Source Abstraction** (`source/mod.rs`):
+- `PaperSource` trait defines the interface for all paper sources
+- `SourceManager` handles multi-source coordination with smart routing
+- `SourceBuilder` for constructing sources with config (proxy, API key, timeout)
 
-- `Paper`: Core paper entity with title, abstract, IDs (arXiv, SS, DOI), PDF URL, authors, citation count
+**Data Models** (`models/`):
+- `Paper`: Core entity with title, abstract, IDs, PDF URL, authors, citation count
 - `Author`: Author with optional Semantic Scholar ID
-- `PaperAuthor`: Paper-Author relationship with ordering
 - `Citation`: Paper-to-paper citation relationship
 
-### Database Layer (`src/db/`)
+**Database Layer** (`db/`):
+- SeaORM for async SQLite operations
+- Entity definitions in `db/entity/`
+- Migrations in `db/migration/`
 
-Uses SeaORM for async SQLite operations:
+### CLI Application (`argusflow-cli`)
 
-- `src/db/entity/`: SeaORM entity definitions (papers, authors, paper_authors, citations)
-- `src/db/migration/`: Database migrations using sea-orm-migration
-- `src/db/database.rs`: `Database` struct with async CRUD operations
-
-Tables: `papers`, `authors`, `paper_authors` (junction), `citations`. Authors are stored separately and linked via `paper_authors` with ordering. All database operations are async.
-
-### CLI (`src/command/`)
-
-- `mod.rs`: Command definitions via clap's `Subcommand`
-- `handlers.rs`: Command execution logic
-- `context.rs`: `CommandContext` holds config, db, and source manager
+Thin wrapper around `argusflow-core`:
+- `command/mod.rs`: Command definitions via clap
+- `command/handlers.rs`: Command execution logic
+- `command/context.rs`: `CommandContext` wraps `ArgusFlow` core
 
 ### Key Patterns
 
 1. **Async trait**: `PaperSource` uses `async_trait` for async methods
-2. **Builder pattern**: `SourceBuilder` and `Paper` use builder methods (`.with_arxiv_id()`, etc.)
-3. **Smart routing**: `SourceManager.smart_search()` queries all registered sources; `fetch_by_identifier()` routes by identifier type
-4. **Capability-based dispatch**: Check `SourceCapabilities` before calling citation/reference methods
+2. **Builder pattern**: `ArgusFlowBuilder`, `SourceBuilder`, `Paper` use builder methods
+3. **Smart routing**: `SourceManager.smart_search()` queries all registered sources
+4. **Capability-based dispatch**: Check `SourceCapabilities` before calling methods
 5. **Inline tests**: Unit tests are in `#[cfg(test)]` modules within source files
 
 ## Adding a New Paper Source
 
-1. Create a new file in `src/source/` (e.g., `crossref.rs`)
+1. Create a new file in `crates/argusflow-core/src/source/` (e.g., `crossref.rs`)
 2. Implement `PaperSource` trait with all required methods
-3. Add module in `src/source/mod.rs` and re-export
-4. Register in `build_manager()` in `src/command/context.rs`
+3. Add module in `crates/argusflow-core/src/source/mod.rs` and re-export
+4. Register in `ArgusFlowBuilder::build()` in `core/argusflow.rs`
 
 ## Configuration
 
