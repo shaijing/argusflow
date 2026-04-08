@@ -40,6 +40,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_papers_arxiv")
                     .table(Papers::Table)
                     .col(Papers::ArxivId)
@@ -50,6 +51,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_papers_ss")
                     .table(Papers::Table)
                     .col(Papers::SemanticScholarId)
@@ -60,6 +62,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_papers_doi")
                     .table(Papers::Table)
                     .col(Papers::Doi)
